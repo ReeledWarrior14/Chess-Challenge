@@ -13,7 +13,7 @@ public class MyBot : IChessBot {
 
     Move bestMoveRoot;
 
-    int depth = 6;
+    int depth = 4;
 
     int positionsEvaled;
 
@@ -22,9 +22,9 @@ public class MyBot : IChessBot {
 
         bestMoveRoot = m_board.GetLegalMoves()[0];
 
-        int eval = Search(depth, 0, -99999, 99999);
+        int eval = Search(depth, 0, -99999, 99999, false);
 
-        Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+        // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
         return bestMoveRoot;
     }
@@ -46,7 +46,8 @@ public class MyBot : IChessBot {
         return material;
     }
 
-    int Search(int depth, int ply, int alpha, int beta) {
+    // To save tokens, Negamax and Q-Search are in a single, combined method
+    int Search(int depth, int ply, int alpha, int beta, bool qSearch) {
         positionsEvaled++;
 
         if (ply > 0) {
@@ -64,20 +65,34 @@ public class MyBot : IChessBot {
             if (alpha >= beta) return alpha;
         }
 
-        if (depth == 0) {
-            return Evaluate();
+        int eval = Evaluate();
+
+        // Quiescence search is in the same function as negamax to save tokens
+        if (qSearch) {
+            // If in Q-search
+            // A player isn't forced to make a capture (typically), so see what the evaluation is without capturing anything.
+            // This prevents situations where a player ony has bad captures available from being evaluated as bad,
+            // when the player might have good non-capture moves available.
+            if (eval >= beta) return beta;
+            alpha = Math.Max(alpha, eval);
         }
 
-        Move[] moves = m_board.GetLegalMoves();
+        if (depth == 0) {
+            // return Evaluate();
+            return Search(-1, ply, alpha, beta, true);
+        }
+
+        // Generate moves, only captures in qsearch
+        Move[] moves = m_board.GetLegalMoves(qSearch);
         OrderMoves(moves);
 
         // If there are no moves then the board is in check, which is bad, or stalemate, which is an equal position
-        if (moves.Length == 0)
+        if (moves.Length == 0 && !qSearch)
             return m_board.IsInCheck() ? -(99999 - ply) : 0;
 
         foreach (Move move in moves) {
             m_board.MakeMove(move);
-            int eval = -Search(depth - 1, ply + 1, -beta, -alpha);
+            eval = -Search(depth - 1, ply + 1, -beta, -alpha, qSearch);
             m_board.UndoMove(move);
 
             if (eval >= beta) {
