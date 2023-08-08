@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -13,6 +13,8 @@ public class MyBot : IChessBot {
 
     Move bestMoveRoot;
 
+    int depth = 6;
+
     int positionsEvaled;
 
     public Move Think(Board board, Timer timer) {
@@ -20,7 +22,9 @@ public class MyBot : IChessBot {
 
         bestMoveRoot = m_board.GetLegalMoves()[0];
 
-        Search(4, 0, -99999, 99999);
+        int eval = Search(depth, 0, -99999, 99999);
+
+        Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
         return bestMoveRoot;
     }
