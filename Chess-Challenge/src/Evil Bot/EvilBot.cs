@@ -1,17 +1,14 @@
-﻿using ChessChallenge.API;
-using System;
+﻿using System;
+using ChessChallenge.API;
 
-namespace ChessChallenge.Example
-{
+namespace ChessChallenge.Example {
     // A simple bot that can spot mate in one, and always captures the most valuable piece it can.
     // Plays randomly otherwise.
-    public class EvilBot : IChessBot
-    {
+    public class EvilBot : IChessBot {
         // Piece values: null, pawn, knight, bishop, rook, queen, king
         int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
 
-        public Move Think(Board board, Timer timer)
-        {
+        public Move Think(Board board, Timer timer) {
             Move[] allMoves = board.GetLegalMoves();
 
             // Pick a random move to play if nothing better is found
@@ -19,11 +16,9 @@ namespace ChessChallenge.Example
             Move moveToPlay = allMoves[rng.Next(allMoves.Length)];
             int highestValueCapture = 0;
 
-            foreach (Move move in allMoves)
-            {
+            foreach (Move move in allMoves) {
                 // Always play checkmate in one
-                if (MoveIsCheckmate(board, move))
-                {
+                if (MoveIsCheckmate(board, move)) {
                     moveToPlay = move;
                     break;
                 }
@@ -32,8 +27,7 @@ namespace ChessChallenge.Example
                 Piece capturedPiece = board.GetPiece(move.TargetSquare);
                 int capturedPieceValue = pieceValues[(int)capturedPiece.PieceType];
 
-                if (capturedPieceValue > highestValueCapture)
-                {
+                if (capturedPieceValue > highestValueCapture) {
                     moveToPlay = move;
                     highestValueCapture = capturedPieceValue;
                 }
@@ -43,8 +37,7 @@ namespace ChessChallenge.Example
         }
 
         // Test if this move gives checkmate
-        bool MoveIsCheckmate(Board board, Move move)
-        {
+        bool MoveIsCheckmate(Board board, Move move) {
             board.MakeMove(move);
             bool isMate = board.IsInCheckmate();
             board.UndoMove(move);
