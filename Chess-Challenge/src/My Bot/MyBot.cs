@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -65,6 +65,7 @@ public class MyBot : IChessBot {
         }
 
         Move[] moves = m_board.GetLegalMoves();
+        OrderMoves(moves);
 
         // If there are no moves then the board is in check, which is bad, or stalemate, which is an equal position
         if (moves.Length == 0)
@@ -91,5 +92,21 @@ public class MyBot : IChessBot {
         }
 
         return alpha;
+    }
+
+    void OrderMoves(Move[] moves) {
+        int[] moveScores = new int[moves.Length];
+        for (int i = 0; i < moves.Length; i++) {
+            moveScores[i] = 0;
+
+            // MVV-LVA (Most valuable victim, least valuable attacker)
+            if (moves[i].IsCapture) {
+                // The * 10 is used to make even 'bad' captures like QxP rank above non-captures
+                moveScores[i] += 10 * pieceValues[(int)moves[i].CapturePieceType] - pieceValues[(int)moves[i].MovePieceType];
+            }
+        }
+
+        Array.Sort(moveScores, moves);
+        Array.Reverse(moves);
     }
 }
