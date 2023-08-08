@@ -46,7 +46,7 @@ public class MyBot : IChessBot {
 
         bestMoveRoot = m_board.GetLegalMoves()[0];
 
-        int eval = Search(depth, 0, -99999, 99999, false);
+        int eval = Search(depth, 0, -99999, 99999);
 
         // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
@@ -79,8 +79,10 @@ public class MyBot : IChessBot {
     }
 
     // To save tokens, Negamax and Q-Search are in a single, combined method
-    int Search(int depth, int ply, int alpha, int beta, bool qSearch) {
+    int Search(int depth, int ply, int alpha, int beta) {
         positionsEvaled++;
+
+        bool qSearch = depth <= 0;
 
         if (ply > 0) {
             // Detect draw by repitition
@@ -109,11 +111,6 @@ public class MyBot : IChessBot {
             alpha = Math.Max(alpha, eval);
         }
 
-        if (depth == 0) {
-            // return Evaluate();
-            return Search(-1, ply, alpha, beta, true);
-        }
-
         // Generate moves, only captures in qsearch
         Move[] moves = m_board.GetLegalMoves(qSearch);
         OrderMoves(moves);
@@ -124,7 +121,7 @@ public class MyBot : IChessBot {
 
         foreach (Move move in moves) {
             m_board.MakeMove(move);
-            eval = -Search(depth - 1, ply + 1, -beta, -alpha, qSearch);
+            eval = -Search(depth - 1, ply + 1, -beta, -alpha);
             m_board.UndoMove(move);
 
             if (eval >= beta) {
