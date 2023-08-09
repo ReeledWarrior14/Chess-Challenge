@@ -4,16 +4,20 @@ using System.Linq;
 using System.Numerics;
 using ChessChallenge.API;
 
-public class MyBot : IChessBot {
+public class MyBot : IChessBot { // Running with vs without iterative deepening
 
     // Piece values: null, pawn, knight, bishop, rook, queen, king
     int[] pieceValues = { 0, 100, 310, 330, 500, 900, 20000 };
 
     Board m_board;
+    Timer m_timer;
 
     Move bestMoveRoot;
+    int bestEvalRoot;
+    Move bestIterativeMove;
+    int bestIterativeEval;
 
-    int depth = 4;
+    double maxTime;
 
     int positionsEvaled;
 
@@ -43,14 +47,47 @@ public class MyBot : IChessBot {
 
     public Move Think(Board board, Timer timer) {
         m_board = board;
+        m_timer = timer;
 
-        bestMoveRoot = m_board.GetLegalMoves()[0];
+        maxTime = getTimeForTurn();
 
-        int eval = Search(depth, 0, -99999, 99999);
+        // Default move in case there is no time for any other moves
+        bestIterativeMove = bestMoveRoot = m_board.GetLegalMoves()[0];
+        bestIterativeEval = bestEvalRoot = 0;
 
-        // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+        // int eval = Search(4, 0, -99999, 99999);
+
+        // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + 4 + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+
+        // If we have time to think (more than a second) then do iterative deepening, otherwise just return the first move
+        if (m_timer.MillisecondsRemaining > 1000) {
+            // Iterative deepening
+            for (int depth = 1; depth <= 50; depth++) {
+                Search(depth, 0, -99999, 99999);
+
+
+
+                if (timer.MillisecondsElapsedThisTurn >= maxTime) {
+                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+
+                    break;
+                }
+                else {
+                    bestMoveRoot = bestIterativeMove;
+                    bestEvalRoot = bestIterativeEval;
+                }
+            }
+        }
+
+        // Console.WriteLine("Max time: " + maxTime + "   time left / 30: " + m_timer.MillisecondsRemaining / 30);
 
         return bestMoveRoot;
+    }
+
+    // Custom function which decides how long to spend on each turn based on the number of pieces remaining
+    double getTimeForTurn() {
+        int materialCount = m_board.IsWhiteToMove ? BitboardHelper.GetNumberOfSetBits(m_board.WhitePiecesBitboard) : BitboardHelper.GetNumberOfSetBits(m_board.BlackPiecesBitboard);
+        return Math.Min((-14.0625 * (materialCount - 16.4327) * (materialCount + 0.43274)), m_timer.MillisecondsRemaining / 30);
     }
 
     // ComPresSTO
@@ -120,6 +157,9 @@ public class MyBot : IChessBot {
             return m_board.IsInCheck() ? -(99999 - ply) : 0;
 
         foreach (Move move in moves) {
+            // Cancel the search if we go over the time allocated for this turn
+            if (m_timer.MillisecondsElapsedThisTurn >= maxTime) return 99999;
+
             m_board.MakeMove(move);
             eval = -Search(depth - 1, ply + 1, -beta, -alpha);
             m_board.UndoMove(move);
@@ -134,7 +174,8 @@ public class MyBot : IChessBot {
                 alpha = eval;
 
                 if (ply == 0) {
-                    bestMoveRoot = move;
+                    bestIterativeMove = move;
+                    bestIterativeEval = eval;
                 }
             }
         }
