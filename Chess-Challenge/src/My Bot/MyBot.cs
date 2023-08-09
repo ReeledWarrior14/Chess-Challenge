@@ -145,12 +145,13 @@ public class MyBot : IChessBot {
     void OrderMoves(Move[] moves) {
         int[] moveScores = new int[moves.Length];
         for (int i = 0; i < moves.Length; i++) {
+            Move move = moves[i];
             moveScores[i] = 0;
 
             // MVV-LVA (Most valuable victim, least valuable attacker)
-            if (moves[i].IsCapture) {
-                // The * 10 is used to make even 'bad' captures like QxP rank above non-captures
-                moveScores[i] += 10 * pieceValues[(int)moves[i].CapturePieceType] - pieceValues[(int)moves[i].MovePieceType];
+            if (move.IsCapture) {
+                // The * 100 is used to make even 'bad' captures like QxP rank above non-captures
+                moveScores[i] += 100 * (int)move.CapturePieceType - (int)move.MovePieceType;
             }
         }
 
