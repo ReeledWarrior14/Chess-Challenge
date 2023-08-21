@@ -45,6 +45,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
     401758895947998613, 420612834953622999, 402607438610388375, 329978099633296596,
     67159620133902};
 
+    // Main method, finds and returns the best move in any given position
     public Move Think(Board board, Timer timer) {
         m_board = board;
         m_timer = timer;
@@ -61,11 +62,10 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
 
         // If we have time to think (more than a second) then do iterative deepening, otherwise just return the first move
         if (m_timer.MillisecondsRemaining > 1000) {
+
             // Iterative deepening
             for (int depth = 1; depth <= 50; depth++) {
                 Search(depth, 0, -99999, 99999);
-
-
 
                 if (timer.MillisecondsElapsedThisTurn >= maxTime) {
                     // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
@@ -111,6 +111,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
         return (mg * phase + eg * (24 - phase)) / 24 * (m_board.IsWhiteToMove ? 1 : -1);
     }
 
+    // ComPresSTO retrieving values from the piece square table
     int getPstVal(int psq) {
         return (int)(((psts[psq / 10] >> (6 * (psq % 10))) & 63) - 20) * 8;
     }
@@ -183,6 +184,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
         return alpha;
     }
 
+    // Move ordering to optimize alpha-beta pruning
     void OrderMoves(Move[] moves) {
         int[] moveScores = new int[moves.Length];
         for (int i = 0; i < moves.Length; i++) {
@@ -196,6 +198,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
             }
         }
 
+        // Sort highest scored moves first
         Array.Sort(moveScores, moves);
         Array.Reverse(moves);
     }
