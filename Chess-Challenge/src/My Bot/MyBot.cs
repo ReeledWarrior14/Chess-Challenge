@@ -67,8 +67,10 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
             for (int depth = 1; depth <= 50; depth++) {
                 Search(depth, 0, -99999, 99999);
 
-                if (timer.MillisecondsElapsedThisTurn >= maxTime) {
+                // If too much time has elapsed this turn or a mate path has been found
+                if (timer.MillisecondsElapsedThisTurn >= maxTime || bestEvalRoot > 99900) {
                     // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
                     break;
                 }
@@ -137,7 +139,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
             if (alpha >= beta) return alpha;
         }
 
-        int eval = Evaluate();
+        int eval;
 
         // Quiescence search is in the same function as negamax to save tokens
         if (qSearch) {
@@ -145,6 +147,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
             // A player isn't forced to make a capture (typically), so see what the evaluation is without capturing anything.
             // This prevents situations where a player ony has bad captures available from being evaluated as bad,
             // when the player might have good non-capture moves available.
+            eval = Evaluate();
             if (eval >= beta) return beta;
             alpha = Math.Max(alpha, eval);
         }
