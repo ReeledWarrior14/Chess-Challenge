@@ -4,7 +4,7 @@ using System.Linq;
 using System.Numerics;
 using ChessChallenge.API;
 
-public class MyBot : IChessBot { // Running with vs without iterative deepening
+public class MyBot : IChessBot {
 
     // Piece values: null, pawn, knight, bishop, rook, queen, king
     int[] pieceValues = { 0, 100, 310, 330, 500, 900, 20000 };
