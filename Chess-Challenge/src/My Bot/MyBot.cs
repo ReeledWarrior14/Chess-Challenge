@@ -174,7 +174,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
             return entry.score;
         }
 
-        int eval = Evaluate();
+        int eval;
 
         // Quiescence search is in the same function as negamax to save tokens
         if (qSearch) {
@@ -182,6 +182,7 @@ public class MyBot : IChessBot { // Running with vs without iterative deepening
             // A player isn't forced to make a capture (typically), so see what the evaluation is without capturing anything.
             // This prevents situations where a player ony has bad captures available from being evaluated as bad,
             // when the player might have good non-capture moves available.
+            eval = Evaluate();
             if (eval >= beta) return beta;
             alpha = Math.Max(alpha, eval);
         }
