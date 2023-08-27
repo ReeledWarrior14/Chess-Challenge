@@ -4,6 +4,10 @@ using ChessChallenge.Application;
 using ChessChallenge.Application.APIHelpers;
 using ChessChallenge.Chess;
 
+
+// Example cutechess command:
+// cutechess-cli -engine name="MyBot" cmd="./Chess-Challenge" arg="uci" arg="MyBot" -engine name="EvilBot" cmd="./Chess-Challenge" arg="uci" arg="EvilBot" -each proto=uci tc=60+0 -concurrency 10 -maxmoves 200 -rounds 60 -ratinginterval 20
+
 namespace ChessChallenge.UCI {
     class UCIBot {
         IChessBot bot;
