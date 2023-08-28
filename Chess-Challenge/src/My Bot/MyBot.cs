@@ -88,8 +88,8 @@ public class MyBot : IChessBot {
                 // If too much time has elapsed or a mate move has been found
                 if (timer.MillisecondsElapsedThisTurn >= maxTime || bestEvalRoot > 99900) {
                     // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Transposition Table: " + ((double)tt.Count(s => s.bound != 0) / (double)entries * 100).ToString("F") + "%   TT values used: " + TTused + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
-                    Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
-                    
+                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+
                     break;
                 }
                 else {
@@ -209,6 +209,10 @@ public class MyBot : IChessBot {
 
             if (eval >= beta) {
                 // Move was too good, opponent will avoid this position
+
+                // Push to TT
+                tt[key % entries] = new TTEntry(key, bestPositionMove, depth, bestPositionEval, 2);
+
                 return beta;
             }
 
