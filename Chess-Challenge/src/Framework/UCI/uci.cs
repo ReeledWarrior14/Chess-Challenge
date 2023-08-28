@@ -6,7 +6,7 @@ using ChessChallenge.Chess;
 
 
 // Example cutechess command:
-// cutechess-cli -engine name="MyBot" cmd="./Chess-Challenge" arg="uci" arg="MyBot" -engine name="EvilBot" cmd="./Chess-Challenge" arg="uci" arg="EvilBot" -each proto=uci tc=60+0 -concurrency 10 -maxmoves 200 -rounds 60 -ratinginterval 20
+// cutechess-cli -engine name="MyBot" cmd="./Chess-Challenge" arg="uci" arg="MyBot" -engine name="EvilBot" cmd="./Chess-Challenge" arg="uci" arg="EvilBot" -each proto=uci tc=60+0 -concurrency 10 -maxmoves 200 -rounds 100 -ratinginterval 20 -games 2 -openings file="Pohl-opening-book.pgn" format=pgn
 
 namespace ChessChallenge.UCI {
     class UCIBot {
