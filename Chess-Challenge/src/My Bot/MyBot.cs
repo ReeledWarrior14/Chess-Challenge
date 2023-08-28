@@ -7,7 +7,7 @@ using ChessChallenge.API;
 public class MyBot : IChessBot {
 
     // Piece values: null, pawn, knight, bishop, rook, queen, king
-    int[] pieceValues = { 0, 100, 310, 330, 500, 900, 20000 };
+    int[] pieceValues = { 0, 100, 310, 330, 500, 1000, 10000 };
 
     Board m_board;
     Timer m_timer;
@@ -56,8 +56,8 @@ public class MyBot : IChessBot {
         }
     }
 
-    // Creating the transposition table (2^20 entries)
-    const int entries = (1 << 20); // this is 2^20
+    // Creating the transposition table (2^22 entries)
+    const int entries = (1 << 22); // this is 2^22
     TTEntry[] tt = new TTEntry[entries];
 
     // Main method, finds and returns the best move in any given position
