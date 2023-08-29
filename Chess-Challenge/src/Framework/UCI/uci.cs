@@ -12,17 +12,13 @@ using ChessChallenge.Chess;
 
 namespace ChessChallenge.UCI {
     class UCIBot {
-        IChessBot bot;
-        ChallengeController.PlayerType type;
-        Chess.Board board;
-        APIMoveGen moveGen;
-
-        static readonly string defaultFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        IChessBot? bot;
+        readonly ChallengeController.PlayerType type;
+        readonly Chess.Board board;
 
         public UCIBot(IChessBot bot, ChallengeController.PlayerType type) {
             this.bot = bot;
             this.type = type;
-            moveGen = new APIMoveGen();
             board = new Chess.Board();
         }
 
@@ -46,7 +42,7 @@ namespace ChessChallenge.UCI {
 
                 for (int i = idx + 1; i < args.Length; i++) {
                     // this is such a hack
-                    API.Move move = new API.Move(args[i], new API.Board(board));
+                    API.Move move = new(args[i], new API.Board(board));
                     board.MakeMove(new Chess.Move(move.RawValue), false);
                 }
             }
@@ -57,7 +53,7 @@ namespace ChessChallenge.UCI {
 
         void GoCommand(string[] args) {
             int wtime = 0, btime = 0;
-            API.Board apiBoard = new API.Board(board);
+            API.Board apiBoard = new(board);
             Console.WriteLine(FenUtility.CurrentFen(board));
             Console.WriteLine(apiBoard.GetFenString());
             for (int i = 0; i < args.Length; i++) {
@@ -69,13 +65,11 @@ namespace ChessChallenge.UCI {
                 }
             }
             if (!apiBoard.IsWhiteToMove) {
-                int tmp = wtime;
-                wtime = btime;
-                btime = tmp;
+                (btime, wtime) = (wtime, btime);
             }
-            Timer timer = new Timer(wtime, btime, 0);
+            Timer timer = new(wtime, btime, 0);
             API.Move move = bot.Think(apiBoard, timer);
-            Console.WriteLine($"bestmove {move.ToString().Substring(7, move.ToString().Length - 8)}");
+            Console.WriteLine($"bestmove {move.ToString()[7..^1]}");
         }
 
         void ExecCommand(string line) {
@@ -108,11 +102,11 @@ namespace ChessChallenge.UCI {
 
         public void Run() {
             while (true) {
-                string line = Console.ReadLine();
+                string? line = Console.ReadLine();
 
                 if (line == "quit" || line == "exit")
                     return;
-                ExecCommand(line);
+                ExecCommand(line ?? "");
             }
         }
     }

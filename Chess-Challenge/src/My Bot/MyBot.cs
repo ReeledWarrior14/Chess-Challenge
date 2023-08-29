@@ -5,16 +5,16 @@ using ChessChallenge.API;
 public class MyBot : IChessBot {
 
     // Piece values: pawn, knight, bishop, rook, queen, king
-    static int[] pieceValues = { 82, 337, 365, 477, 1025, 0, // Middlegame
-                          94, 281, 297, 512, 936, 0 }; // Endgame
+    private static readonly int[] pieceValues = { 82, 337, 365, 477, 1025, 0, // Middlegame
+                                94, 281, 297, 512, 936, 0 }; // Endgame
 
-    Board m_board;
-    Timer m_timer;
+    private Board m_board;
+    private Timer m_timer;
 
-    Move bestMoveRoot;
-    int bestEvalRoot;
-    Move bestIterativeMove;
-    int bestIterativeEval;
+    private Move bestMoveRoot;
+    private int bestEvalRoot;
+    private Move bestIterativeMove;
+    private int bestIterativeEval;
 
     double searchMaxTime;
 
@@ -22,7 +22,7 @@ public class MyBot : IChessBot {
     int TTused;
 
     // Compressed Piece-Square tables used for evaluation, ComPresSTO
-    int[][] psts = new[] {
+    readonly int[][] psts = new[] {
             63746705523041458768562654720m, 71818693703096985528394040064m, 75532537544690978830456252672m, 75536154932036771593352371712m, 76774085526445040292133284352m, 3110608541636285947269332480m, 936945638387574698250991104m, 75531285965747665584902616832m,
             77047302762000299964198997571m, 3730792265775293618620982364m, 3121489077029470166123295018m, 3747712412930601838683035969m, 3763381335243474116535455791m, 8067176012614548496052660822m, 4977175895537975520060507415m, 2475894077091727551177487608m,
             2458978764687427073924784380m, 3718684080556872886692423941m, 4959037324412353051075877138m, 3135972447545098299460234261m, 4371494653131335197311645996m, 9624249097030609585804826662m, 9301461106541282841985626641m, 2793818196182115168911564530m,
@@ -49,15 +49,15 @@ public class MyBot : IChessBot {
     }
 
     // Creating the transposition table (2^22 entries)
-    const int entries = (1 << 22); // this is 2^22
-    TTEntry[] tt = new TTEntry[entries];
+    const int entries = 1 << 22; // this is 2^22
+    readonly TTEntry[] tt = new TTEntry[entries];
 
     // Main method, finds and returns the best move in any given position
     public Move Think(Board board, Timer timer) {
         m_board = board;
         m_timer = timer;
 
-        searchMaxTime = getTimeForTurn();
+        searchMaxTime = GetTimeForTurn();
 
         // Default move in case there is no time for any other moves
         bestIterativeMove = bestMoveRoot = m_board.GetLegalMoves()[0];
@@ -99,7 +99,7 @@ public class MyBot : IChessBot {
     }
 
     // Custom function which decides how long to spend on each turn based on the number of pieces remaining
-    double getTimeForTurn() {
+    double GetTimeForTurn() {
         int materialCount = m_board.IsWhiteToMove ? BitboardHelper.GetNumberOfSetBits(m_board.WhitePiecesBitboard) : BitboardHelper.GetNumberOfSetBits(m_board.BlackPiecesBitboard);
         return Math.Min((-14.0625 * (materialCount - 16.4327) * (materialCount + 0.43274)), m_timer.MillisecondsRemaining / 30);
     }
@@ -107,21 +107,20 @@ public class MyBot : IChessBot {
     // ComPresSTO, credit to Tyrant
     int Evaluate() {
         int middlegame = 0, endgame = 0, gamephase = 0, sideToMove = 2, piece, square;
-            for (; --sideToMove >= 0; middlegame = -middlegame, endgame = -endgame)
-                for (piece = -1; ++piece < 6;)
-                    for (ulong mask = m_board.GetPieceBitboard((PieceType)piece + 1, sideToMove > 0); mask != 0;)
-                    {
-                        // Gamephase, middlegame -> endgame
-                        // Multiply, then shift, then mask out 4 bits for value (0-16)
-                        gamephase += 0x00042110 >> piece * 4 & 0x0F;
+        for (; --sideToMove >= 0; middlegame = -middlegame, endgame = -endgame)
+            for (piece = -1; ++piece < 6;)
+                for (ulong mask = m_board.GetPieceBitboard((PieceType)piece + 1, sideToMove > 0); mask != 0;) {
+                    // Gamephase, middlegame -> endgame
+                    // Multiply, then shift, then mask out 4 bits for value (0-16)
+                    gamephase += 0x00042110 >> piece * 4 & 0x0F;
 
-                        // Material and square evaluation
-                        square = BitboardHelper.ClearAndGetIndexOfLSB(ref mask) ^ 56 * sideToMove;
-                        middlegame += psts[square][piece];
-                        endgame += psts[square][piece + 6];
-                    }
-            // Tempo bonus
-            return (middlegame * gamephase + endgame * (24 - gamephase)) / 24 * (m_board.IsWhiteToMove ? 1 : -1) + gamephase / 2;
+                    // Material and square evaluation
+                    square = BitboardHelper.ClearAndGetIndexOfLSB(ref mask) ^ 56 * sideToMove;
+                    middlegame += psts[square][piece];
+                    endgame += psts[square][piece + 6];
+                }
+        // Tempo bonus
+        return (middlegame * gamephase + endgame * (24 - gamephase)) / 24 * (m_board.IsWhiteToMove ? 1 : -1) + gamephase / 2;
     }
 
     // To save tokens, Negamax and Q-Search are in a single, combined method
