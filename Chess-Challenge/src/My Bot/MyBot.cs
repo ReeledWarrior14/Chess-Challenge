@@ -211,7 +211,7 @@ public class MyBot : IChessBot {
                 // Move was too good, opponent will avoid this position
 
                 // Push to TT
-                tt[key % entries] = new TTEntry(key, bestPositionMove, depth, bestPositionEval, 2);
+                tt[key % entries] = new TTEntry(key, move, depth, eval, 2);
 
                 return beta;
             }
