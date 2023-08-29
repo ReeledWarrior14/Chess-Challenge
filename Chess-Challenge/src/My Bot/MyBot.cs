@@ -39,18 +39,9 @@ public class MyBot : IChessBot {
         ).ToArray();
 
     // Transposition tables - stores the best move in a given position so that it can be looked up later (without having to redo a search)
-    struct TTEntry {
-        public ulong key;
-        public Move move;
-        public int depth, score, bound;
-        public TTEntry(ulong _key, Move _move, int _depth, int _score, int _bound) {
-            key = _key; move = _move; depth = _depth; score = _score; bound = _bound;
-        }
-    }
-
     // Creating the transposition table (2^22 entries)
     const int entries = 1 << 22; // this is 2^22
-    readonly TTEntry[] tt = new TTEntry[entries];
+    private readonly (ulong, Move, int, int, int)[] tt = new (ulong, Move, int, int, int)[entries];
 
     // Main method, finds and returns the best move in any given position
     public Move Think(Board board, Timer timer) {
@@ -144,20 +135,22 @@ public class MyBot : IChessBot {
             if (alpha >= beta) return alpha;
         }
 
-        ulong key = m_board.ZobristKey;
+        ulong zobristKey = m_board.ZobristKey;
 
         // Retrieve the transposition table entry (for this position, empty if it doesnt exist)
-        TTEntry entry = tt[key % entries];
+        ref var entry = ref tt[zobristKey % entries];
+        int entryScore = entry.Item3;
+        int entryFlag = entry.Item5;
 
         // Transposition Table cutoffs
         // If a position has been evaluated before (to an equal depth or higher) then just use the transposition table value
-        if (ply > 0 && entry.key == key && entry.depth >= depth && (
-            entry.bound == 3 // exact score
-                || entry.bound == 2 && entry.score >= beta // lower bound, fail high
-                || entry.bound == 1 && entry.score <= alpha // upper bound, fail low
+        if (ply > 0 && entry.Item1 == zobristKey && entry.Item4 >= depth && (
+            entryFlag == 3 // exact score
+                || entryFlag == 2 && entryScore >= beta // lower bound, fail high
+                || entryFlag == 1 && entryScore <= alpha // upper bound, fail low
         )) {
             TTused++;
-            return entry.score;
+            return entryScore;
         }
 
         int eval;
@@ -197,7 +190,7 @@ public class MyBot : IChessBot {
                 // Move was too good, opponent will avoid this position
 
                 // Push to TT
-                tt[key % entries] = new TTEntry(key, move, depth, eval, 2);
+                entry = new(zobristKey, move, eval, depth, 2);
 
                 return beta;
             }
@@ -226,7 +219,13 @@ public class MyBot : IChessBot {
         int bound = bestPositionEval >= beta ? 2 : bestPositionEval > origAlpha ? 3 : 1;
 
         // Push to TT
-        tt[key % entries] = new TTEntry(key, bestPositionMove, depth, bestPositionEval, bound);
+        // tt[key % entries] = new TTEntry(key, bestPositionMove, depth, bestPositionEval, bound);
+        entry = new(
+                zobristKey,
+                bestPositionMove,
+                bestPositionEval,
+                depth,
+                bound);
 
         return alpha;
     }
@@ -239,7 +238,7 @@ public class MyBot : IChessBot {
             moveScores[i] = 0;
 
             // check Transposition table move first
-            if (move == tt[m_board.ZobristKey % entries].move)
+            if (move == tt[m_board.ZobristKey % entries].Item2)
                 moveScores[i] += 10000;
 
             // MVV-LVA (Most valuable victim, least valuable attacker)
