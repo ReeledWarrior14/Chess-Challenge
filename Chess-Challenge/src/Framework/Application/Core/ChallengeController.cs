@@ -1,15 +1,15 @@
-﻿using ChessChallenge.Chess;
-using ChessChallenge.Example;
-using Raylib_cs;
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static ChessChallenge.Application.Settings;
+using ChessChallenge.Chess;
+using ChessChallenge.Example;
+using Raylib_cs;
 using static ChessChallenge.Application.ConsoleHelper;
+using static ChessChallenge.Application.Settings;
 
 namespace ChessChallenge.Application
 {
@@ -74,6 +74,15 @@ namespace ChessChallenge.Application
             botTaskWaitHandle = new AutoResetEvent(false);
 
             StartNewGame(PlayerType.Human, PlayerType.MyBot);
+        }
+
+        public static ChessChallenge.API.IChessBot? CreateBot(PlayerType type) {
+            return type switch {
+                PlayerType.MyBot => new MyBot(),
+                PlayerType.EvilBot => new EvilBot(),
+                // If you have other bot types, you can add them here as well
+                _ => null
+            };
         }
 
         public void StartNewGame(PlayerType whiteType, PlayerType blackType)

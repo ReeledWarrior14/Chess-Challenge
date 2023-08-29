@@ -7,7 +7,7 @@ using ChessChallenge.API;
 public class MyBot : IChessBot {
 
     // Piece values: null, pawn, knight, bishop, rook, queen, king
-    int[] pieceValues = { 0, 100, 310, 330, 500, 900, 20000 };
+    int[] pieceValues = { 0, 100, 310, 330, 500, 1000, 10000 };
 
     Board m_board;
     Timer m_timer;
@@ -20,6 +20,7 @@ public class MyBot : IChessBot {
     double maxTime;
 
     int positionsEvaled;
+    int TTused;
 
     // Compressed Piece-Square tables used for evaluation, ComPresSTO
     int[] piecePhase = { 0, 0, 1, 1, 2, 4, 0 };
@@ -45,10 +46,27 @@ public class MyBot : IChessBot {
     401758895947998613, 420612834953622999, 402607438610388375, 329978099633296596,
     67159620133902};
 
+    // Transposition tables - stores the best move in a given position so that it can be looked up later (without having to redo a search)
+    struct TTEntry {
+        public ulong key;
+        public Move move;
+        public int depth, score, bound;
+        public TTEntry(ulong _key, Move _move, int _depth, int _score, int _bound) {
+            key = _key; move = _move; depth = _depth; score = _score; bound = _bound;
+        }
+    }
+
+    // Creating the transposition table (2^22 entries)
+    const int entries = (1 << 22); // this is 2^22
+    TTEntry[] tt = new TTEntry[entries];
+
     // Main method, finds and returns the best move in any given position
     public Move Think(Board board, Timer timer) {
         m_board = board;
         m_timer = timer;
+
+        positionsEvaled = 0;
+        TTused = 0;
 
         maxTime = getTimeForTurn();
 
@@ -67,9 +85,9 @@ public class MyBot : IChessBot {
             for (int depth = 1; depth <= 50; depth++) {
                 Search(depth, 0, -99999, 99999);
 
-                // If too much time has elapsed this turn or a mate path has been found
+                // If too much time has elapsed or a mate move has been found
                 if (timer.MillisecondsElapsedThisTurn >= maxTime || bestEvalRoot > 99900) {
-                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Transposition Table: " + ((double)tt.Count(s => s.bound != 0) / (double)entries * 100).ToString("F") + "%   TT values used: " + TTused + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
                     // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
                     break;
@@ -81,7 +99,8 @@ public class MyBot : IChessBot {
             }
         }
 
-        // Console.WriteLine("Max time: " + maxTime + "   time left / 30: " + m_timer.MillisecondsRemaining / 30);
+        // Console.WriteLine("Max time: " + maxTime + "   time left/30: " + m_timer.MillisecondsRemaining / 30 +  "   Time used: " + m_timer.MillisecondsElapsedThisTurn + "  Used allocated time: " + (Math.Round(maxTime) == m_timer.MillisecondsElapsedThisTurn));
+        // Console.WriteLine("Used allocated time: " + (Math.Round(maxTime) == m_timer.MillisecondsElapsedThisTurn));
 
         return bestMoveRoot;
     }
@@ -139,6 +158,22 @@ public class MyBot : IChessBot {
             if (alpha >= beta) return alpha;
         }
 
+        ulong key = m_board.ZobristKey;
+
+        // Retrieve the transposition table entry (for this position, empty if it doesnt exist)
+        TTEntry entry = tt[key % entries];
+
+        // Transposition Table cutoffs
+        // If a position has been evaluated before (to an equal depth or higher) then just use the transposition table value
+        if (ply > 0 && entry.key == key && entry.depth >= depth && (
+            entry.bound == 3 // exact score
+                || entry.bound == 2 && entry.score >= beta // lower bound, fail high
+                || entry.bound == 1 && entry.score <= alpha // upper bound, fail low
+        )) {
+            TTused++;
+            return entry.score;
+        }
+
         int eval;
 
         // Quiescence search is in the same function as negamax to save tokens
@@ -156,6 +191,10 @@ public class MyBot : IChessBot {
         Move[] moves = m_board.GetLegalMoves(qSearch);
         OrderMoves(moves);
 
+        Move bestPositionMove = Move.NullMove;
+        int bestPositionEval = -99999;
+        int origAlpha = alpha;
+
         // If there are no moves then the board is in check, which is bad, or stalemate, which is an equal position
         if (moves.Length == 0 && !qSearch)
             return m_board.IsInCheck() ? -(99999 - ply) : 0;
@@ -170,19 +209,38 @@ public class MyBot : IChessBot {
 
             if (eval >= beta) {
                 // Move was too good, opponent will avoid this position
+
+                // Push to TT
+                tt[key % entries] = new TTEntry(key, move, depth, eval, 2);
+
                 return beta;
             }
 
             // Found a new best move in this position
-            if (eval > alpha) {
-                alpha = eval;
+            if (eval > bestPositionEval) {
+                bestPositionEval = eval;
+                bestPositionMove = move;
+
+                // Improve alpha
+                alpha = Math.Max(alpha, bestPositionEval);
 
                 if (ply == 0) {
                     bestIterativeMove = move;
                     bestIterativeEval = eval;
                 }
+
+                // Fail-high
+                if (alpha >= beta) {
+                    break;
+                }
             }
         }
+
+        // Did we fail high/low or get an exact score?
+        int bound = bestPositionEval >= beta ? 2 : bestPositionEval > origAlpha ? 3 : 1;
+
+        // Push to TT
+        tt[key % entries] = new TTEntry(key, bestPositionMove, depth, bestPositionEval, bound);
 
         return alpha;
     }
@@ -194,11 +252,14 @@ public class MyBot : IChessBot {
             Move move = moves[i];
             moveScores[i] = 0;
 
+            // check Transposition table move first
+            if (move == tt[m_board.ZobristKey % entries].move)
+                moveScores[i] += 10000;
+
             // MVV-LVA (Most valuable victim, least valuable attacker)
-            if (move.IsCapture) {
+            if (move.IsCapture)
                 // The * 100 is used to make even 'bad' captures like QxP rank above non-captures
                 moveScores[i] += 100 * (int)move.CapturePieceType - (int)move.MovePieceType;
-            }
         }
 
         // Sort highest scored moves first
