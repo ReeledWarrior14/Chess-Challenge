@@ -183,7 +183,11 @@ public class MyBot : IChessBot {
             if (m_timer.MillisecondsElapsedThisTurn >= searchMaxTime) return 99999;
 
             m_board.MakeMove(move);
-            eval = -Search(depth - 1, ply + 1, -beta, -alpha);
+
+            // Extend search by one ply if the next move is a promotion or puts the board in check
+            int extension = m_board.IsInCheck() ? 1 : 0;
+
+            eval = -Search(depth - 1 + extension, ply + 1, -beta, -alpha);
             m_board.UndoMove(move);
 
             if (eval >= beta) {
