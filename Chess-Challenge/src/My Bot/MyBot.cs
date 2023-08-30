@@ -190,6 +190,7 @@ public class MyBot : IChessBot {
             eval = -Search(depth - 1 + extension, ply + 1, -beta, -alpha);
             m_board.UndoMove(move);
 
+            // Fail-high
             if (eval >= beta) {
                 // Move was too good, opponent will avoid this position
 
@@ -210,11 +211,6 @@ public class MyBot : IChessBot {
                 if (ply == 0) {
                     bestIterativeMove = move;
                     bestIterativeEval = eval;
-                }
-
-                // Fail-high
-                if (alpha >= beta) {
-                    break;
                 }
             }
         }
