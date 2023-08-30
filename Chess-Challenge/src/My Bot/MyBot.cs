@@ -46,6 +46,10 @@ public class MyBot : IChessBot {
     // Killer Move array
     private readonly Move[] killerMoves = new Move[1024];
 
+    // History Heuristics
+    // Side to move, start square, end square
+    private int[,,] historyHeuristics = new int[2, 64, 64];
+
     // Main method, finds and returns the best move in any given position
     public Move Think(Board board, Timer timer) {
         m_board = board;
@@ -88,6 +92,7 @@ public class MyBot : IChessBot {
         // Reset here so it can be used for psts unpacking when a new bot is created
         positionsEvaled = 0;
         TTused = 0;
+        historyHeuristics = new int[2, 64, 64];
 
         return bestMoveRoot;
     }
@@ -200,8 +205,13 @@ public class MyBot : IChessBot {
                 // Push to TT
                 entry = new(zobristKey, move, eval, depth, 2);
 
+                // If move is quiet (non-capture)
                 if (!move.IsCapture) {
+                    // Add move to killer moves
                     killerMoves[depth] = move;
+
+                    // Add move to history heuristic
+                    historyHeuristics[m_board.IsWhiteToMove ? 0 : 1, move.StartSquare.Index, move.TargetSquare.Index] += depth * depth;
                 }
 
                 return beta;
@@ -246,16 +256,22 @@ public class MyBot : IChessBot {
 
             // check Transposition table move first
             if (move == tt[m_board.ZobristKey % entries].Item2)
-                moveScores[i] += 10000;
+                moveScores[i] += 10_000_000;
 
-            // Prioritize checking killer moves over MVV-LVA but under TT moves
-            if (depth >= 0 && killerMoves[depth] == move)
-                moveScores[i] += 200;
+            // Quiet Moves (when in q-search, where depth is less than 0, all moves are captues)
+            if (!move.IsCapture) {
+                // Prioritize checking killer moves over MVV-LVA but under TT moves
+                if (killerMoves[depth] == move)
+                    moveScores[i] += 1_000_000;
+
+                // Consider history heuristic
+                moveScores[i] += historyHeuristics[m_board.IsWhiteToMove ? 0 : 1, move.StartSquare.Index, move.TargetSquare.Index];
+            }
 
             // MVV-LVA (Most valuable victim, least valuable attacker)
             if (move.IsCapture)
                 // The * 100 is used to make even 'bad' captures like QxP rank above non-captures
-                moveScores[i] += 100 * (int)move.CapturePieceType - (int)move.MovePieceType;
+                moveScores[i] += 2_000_000 * (int)move.CapturePieceType - (int)move.MovePieceType;
         }
 
         // Sort highest scored moves first
