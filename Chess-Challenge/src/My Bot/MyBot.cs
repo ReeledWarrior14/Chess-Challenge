@@ -6,7 +6,7 @@ public class MyBot : IChessBot {
 
     // Piece values: pawn, knight, bishop, rook, queen, king
     private static readonly int[] pieceValues = { 82, 337, 365, 477, 1025, 0, // Middlegame
-                                94, 281, 297, 512, 936, 0 }; // Endgame
+                                                  94, 281, 297, 512, 936, 0 }; // Endgame
 
     private Board m_board;
     private Timer m_timer;
@@ -16,13 +16,13 @@ public class MyBot : IChessBot {
     private Move bestIterativeMove;
     private int bestIterativeEval;
 
-    double searchMaxTime;
+    private double searchMaxTime;
 
-    static int positionsEvaled;
-    int TTused;
+    private static int positionsEvaled;
+    private int TTused;
 
     // Compressed Piece-Square tables used for evaluation, ComPresSTO
-    readonly int[][] psts = new[] {
+    private readonly int[][] psts = new[] {
             63746705523041458768562654720m, 71818693703096985528394040064m, 75532537544690978830456252672m, 75536154932036771593352371712m, 76774085526445040292133284352m, 3110608541636285947269332480m, 936945638387574698250991104m, 75531285965747665584902616832m,
             77047302762000299964198997571m, 3730792265775293618620982364m, 3121489077029470166123295018m, 3747712412930601838683035969m, 3763381335243474116535455791m, 8067176012614548496052660822m, 4977175895537975520060507415m, 2475894077091727551177487608m,
             2458978764687427073924784380m, 3718684080556872886692423941m, 4959037324412353051075877138m, 3135972447545098299460234261m, 4371494653131335197311645996m, 9624249097030609585804826662m, 9301461106541282841985626641m, 2793818196182115168911564530m,
@@ -40,8 +40,11 @@ public class MyBot : IChessBot {
 
     // Transposition tables - stores the best move in a given position so that it can be looked up later (without having to redo a search)
     // Creating the transposition table (2^22 entries)
-    const int entries = 1 << 22; // this is 2^22
+    private const int entries = 1 << 22; // this is 2^22
     private readonly (ulong, Move, int, int, int)[] tt = new (ulong, Move, int, int, int)[entries];
+
+    // Killer Move array
+    private readonly Move[] killerMoves = new Move[1024];
 
     // Main method, finds and returns the best move in any given position
     public Move Think(Board board, Timer timer) {
@@ -168,7 +171,7 @@ public class MyBot : IChessBot {
 
         // Generate moves, only captures in qsearch
         Move[] moves = m_board.GetLegalMoves(qSearch);
-        OrderMoves(moves);
+        OrderMoves(moves, depth);
 
         Move bestPositionMove = Move.NullMove;
         int bestPositionEval = -99999;
@@ -196,6 +199,10 @@ public class MyBot : IChessBot {
 
                 // Push to TT
                 entry = new(zobristKey, move, eval, depth, 2);
+
+                if (!move.IsCapture) {
+                    killerMoves[depth] = move;
+                }
 
                 return beta;
             }
@@ -231,7 +238,7 @@ public class MyBot : IChessBot {
     }
 
     // Move ordering to optimize alpha-beta pruning
-    void OrderMoves(Move[] moves) {
+    void OrderMoves(Move[] moves, int depth) {
         int[] moveScores = new int[moves.Length];
         for (int i = 0; i < moves.Length; i++) {
             Move move = moves[i];
@@ -240,6 +247,10 @@ public class MyBot : IChessBot {
             // check Transposition table move first
             if (move == tt[m_board.ZobristKey % entries].Item2)
                 moveScores[i] += 10000;
+
+            // Prioritize checking killer moves over MVV-LVA but under TT moves
+            if (depth >= 0 && killerMoves[depth] == move)
+                moveScores[i] += 200;
 
             // MVV-LVA (Most valuable victim, least valuable attacker)
             if (move.IsCapture)
