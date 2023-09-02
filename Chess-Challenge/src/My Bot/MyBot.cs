@@ -12,14 +12,12 @@ public class MyBot : IChessBot {
     private Timer m_timer;
 
     private Move bestMoveRoot;
-    private int bestEvalRoot;
     private Move bestIterativeMove;
     private int bestIterativeEval;
 
     private double searchMaxTime;
 
-    private static int positionsEvaled;
-    private int TTused;
+    private static int nodes;
 
     // Compressed Piece-Square tables used for evaluation, ComPresSTO
     private readonly int[][] psts = new[] {
@@ -34,7 +32,7 @@ public class MyBot : IChessBot {
         }.Select(packedTable =>
         new System.Numerics.BigInteger(packedTable).ToByteArray().Take(12)
                     // Using positions evaled since it's an integer than initializes to zero and is assgined before being used again 
-                    .Select(square => (int)((sbyte)square * 1.461) + pieceValues[positionsEvaled++ % 12])
+                    .Select(square => (int)((sbyte)square * 1.461) + pieceValues[nodes++ % 12])
                 .ToArray()
         ).ToArray();
 
@@ -59,29 +57,29 @@ public class MyBot : IChessBot {
 
         // Default move in case there is no time for any other moves
         bestIterativeMove = bestMoveRoot = m_board.GetLegalMoves()[0];
-        bestIterativeEval = bestEvalRoot = 0;
+        bestIterativeEval = 0;
 
         // int eval = Search(4, 0, -99999, 99999);
 
-        // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + 4 + "   Eval: " + eval + "   Positions Evaluated: " + positionsEvaled + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+        // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + 4 + "   Eval: " + eval + "   nodes: " + nodes + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
         // If we have time to think (more than a second) then do iterative deepening, otherwise just return the first move
         if (m_timer.MillisecondsRemaining > 1000) {
 
             // Iterative deepening
-            for (int depth = 1; depth <= 50; depth++) {
-                Search(depth, 0, -99999, 99999);
+            for (int depth = 2, alpha = -99999, beta = 99999, eval; ;) {
+                eval = Search(depth, 0, alpha, beta);
 
                 // If too much time has elapsed or a mate move has been found
-                if (timer.MillisecondsElapsedThisTurn >= searchMaxTime || bestEvalRoot > 99900) {
-                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Positions Evaluated: " + positionsEvaled + "   Transposition Table: " + ((double)tt.Count(s => s.bound != 0) / (double)entries * 100).ToString("F") + "%   TT values used: " + TTused + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
-                    // Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + bestEvalRoot + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+                if (timer.MillisecondsElapsedThisTurn >= searchMaxTime || eval > 99900) {
+                    Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   nodes: " + nodes + "   Transposition Table: " + ((double)tt.Count(s => s.Item3 != 0) / (double)entries * 100).ToString("F") + "%   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
+                    Console.WriteLine("Side: " + (m_board.IsWhiteToMove ? "White" : "Black") + "   Depth: " + depth + "   Eval: " + eval + "   Time: " + timer.MillisecondsElapsedThisTurn + "ms   " + bestMoveRoot);
 
                     break;
                 }
                 else {
                     bestMoveRoot = bestIterativeMove;
-                    bestEvalRoot = bestIterativeEval;
+                    eval = bestIterativeEval;
                 }
             }
         }
@@ -90,8 +88,7 @@ public class MyBot : IChessBot {
         // Console.WriteLine("Used allocated time: " + (Math.Round(maxTime) == m_timer.MillisecondsElapsedThisTurn));
 
         // Reset here so it can be used for psts unpacking when a new bot is created
-        positionsEvaled = 0;
-        TTused = 0;
+        nodes = 0;
         historyHeuristics = new int[2, 64, 64];
 
         return bestMoveRoot;
@@ -124,14 +121,14 @@ public class MyBot : IChessBot {
 
     // To save tokens, Negamax and Q-Search are in a single, combined method
     int Search(int depth, int ply, int alpha, int beta) {
-        positionsEvaled++;
+        nodes++;
 
-        bool qSearch = depth <= 0;
+        bool qSearch = depth <= 0, notRoot = ply > 0, inCheck = m_board.IsInCheck();
 
-        if (ply > 0) {
+        if (notRoot) {
             // Detect draw by repitition
             // Returns a draw score even if this position has only appeared once in the game history (for simplicity).
-            if (m_board.GameRepetitionHistory.Contains(m_board.ZobristKey))
+            if (m_board.IsRepeatedPosition())
                 return 0;
 
             // Skip this position if a mating sequence has already been found earlier in
@@ -152,14 +149,11 @@ public class MyBot : IChessBot {
 
         // Transposition Table cutoffs
         // If a position has been evaluated before (to an equal depth or higher) then just use the transposition table value
-        if (ply > 0 && entry.Item1 == zobristKey && entry.Item4 >= depth && (
+        if (notRoot && entry.Item1 == zobristKey && entry.Item4 >= depth && (
             entryFlag == 3 // exact score
                 || entryFlag == 2 && entryScore >= beta // lower bound, fail high
                 || entryFlag == 1 && entryScore <= alpha // upper bound, fail low
-        )) {
-            TTused++;
-            return entryScore;
-        }
+        )) return entryScore;
 
         int eval;
 
@@ -184,7 +178,7 @@ public class MyBot : IChessBot {
 
         // If there are no moves then the board is in check, which is bad, or stalemate, which is an equal position
         if (moves.Length == 0 && !qSearch)
-            return m_board.IsInCheck() ? -(99999 - ply) : 0;
+            return inCheck ? -(99999 - ply) : 0;
 
         foreach (Move move in moves) {
             // Cancel the search if we go over the time allocated for this turn
@@ -193,7 +187,7 @@ public class MyBot : IChessBot {
             m_board.MakeMove(move);
 
             // Extend search by one ply if the next move is a promotion or puts the board in check
-            int extension = m_board.IsInCheck() ? 1 : 0;
+            int extension = inCheck ? 1 : 0;
 
             eval = -Search(depth - 1 + extension, ply + 1, -beta, -alpha);
             m_board.UndoMove(move);
