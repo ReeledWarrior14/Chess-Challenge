@@ -147,6 +147,7 @@ public class MyBot : IChessBot {
 
         // Retrieve the transposition table entry (for this position, empty if it doesnt exist)
         ref var entry = ref tt[zobristKey % entries];
+        Move entryMove = entry.Item2;
         int entryScore = entry.Item3;
         int entryFlag = entry.Item5;
 
@@ -174,9 +175,18 @@ public class MyBot : IChessBot {
             alpha = Math.Max(alpha, eval);
         }
 
-        // Generate moves, only captures in qsearch
-        Move[] moves = m_board.GetLegalMoves(qSearch);
-        OrderMoves(moves, depth);
+        // Generate moves, only captures in qsearch, and order them to optimize Alpha-Beta pruning
+        Move[] moves = m_board.GetLegalMoves(qSearch).OrderByDescending(
+            move =>
+                // Transposition Table Move
+                move == entryMove ? 10_000_000 :
+                // MVV-LVA (Most Valuable Victim, Least Valuable Attacker)
+                move.IsCapture ? 2_000_000 * (int)move.CapturePieceType - (int)move.MovePieceType :
+                // Killer Moves
+                killerMoves[depth] == move ? 1_000_000 :
+                // History Heuristics
+                historyHeuristics[m_board.IsWhiteToMove ? 0 : 1, move.StartSquare.Index, move.TargetSquare.Index]
+        ).ToArray();
 
         Move bestPositionMove = Move.NullMove;
         int bestPositionEval = -99999;
@@ -245,37 +255,5 @@ public class MyBot : IChessBot {
                 bound);
 
         return alpha;
-    }
-
-    // Move ordering to optimize alpha-beta pruning
-    void OrderMoves(Move[] moves, int depth) {
-        int[] moveScores = new int[moves.Length];
-        for (int i = 0; i < moves.Length; i++) {
-            Move move = moves[i];
-            moveScores[i] = 0;
-
-            // check Transposition table move first
-            if (move == tt[m_board.ZobristKey % entries].Item2)
-                moveScores[i] += 10_000_000;
-
-            // Quiet Moves (when in q-search, where depth is less than 0, all moves are captues)
-            if (!move.IsCapture) {
-                // Prioritize checking killer moves over MVV-LVA but under TT moves
-                if (killerMoves[depth] == move)
-                    moveScores[i] += 1_000_000;
-
-                // Consider history heuristic
-                moveScores[i] += historyHeuristics[m_board.IsWhiteToMove ? 0 : 1, move.StartSquare.Index, move.TargetSquare.Index];
-            }
-
-            // MVV-LVA (Most valuable victim, least valuable attacker)
-            if (move.IsCapture)
-                // The * 100 is used to make even 'bad' captures like QxP rank above non-captures
-                moveScores[i] += 2_000_000 * (int)move.CapturePieceType - (int)move.MovePieceType;
-        }
-
-        // Sort highest scored moves first
-        Array.Sort(moveScores, moves);
-        Array.Reverse(moves);
     }
 }
