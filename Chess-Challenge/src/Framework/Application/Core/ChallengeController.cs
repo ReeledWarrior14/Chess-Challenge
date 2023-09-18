@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ChessChallenge.Chess;
-using ChessChallenge.Example;
+// using ChessChallenge.Example;
 using Raylib_cs;
 using static ChessChallenge.Application.ConsoleHelper;
 using static ChessChallenge.Application.Settings;
@@ -78,7 +78,7 @@ namespace ChessChallenge.Application
 
         public static ChessChallenge.API.IChessBot? CreateBot(PlayerType type) {
             return type switch {
-                PlayerType.MyBot => new MyBot(),
+                PlayerType.MyBot => new Tyrant(),
                 PlayerType.EvilBot => new EvilBot(),
                 // If you have other bot types, you can add them here as well
                 _ => null
