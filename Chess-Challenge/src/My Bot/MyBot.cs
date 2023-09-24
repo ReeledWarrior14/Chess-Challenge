@@ -216,13 +216,16 @@ public class MyBot : IChessBot {
 
             // Transposition table lookup -> Found a valid entry for this position
             // Avoid retrieving mate scores from the TT since they aren't accurate to the ply
-            if (entryKey == zobristKey && notRoot && entryDepth >= depth && Math.Abs(entryScore) < 50000 && (
-                    // Exact
-                    entryFlag == 1 ||
-                    // Upperbound
-                    entryFlag == 2 && entryScore <= alpha ||
-                    // Lowerbound
-                    entryFlag == 3 && entryScore >= beta))
+            // if (entryKey == zobristKey && notRoot && entryDepth >= depth && Math.Abs(entryScore) < 50000 && (
+            //         // Exact
+            //         entryFlag == 1 ||
+            //         // Upperbound
+            //         entryFlag == 2 && entryScore <= alpha ||
+            //         // Lowerbound
+            //         entryFlag == 3 && entryScore >= beta))
+            //     return entryScore;
+
+            if (entryKey == zobristKey && notRoot)
                 return entryScore;
 
             // Internal Iterative Reductions
