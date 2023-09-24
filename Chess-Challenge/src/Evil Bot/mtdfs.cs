@@ -10,11 +10,11 @@
 // 
 
 
-//#define DEBUGGING
+//#define DEBUG
 
-using ChessChallenge.API;
 using System;
 using System.Linq;
+using ChessChallenge.API;
 
 // TODO: IMPORTANT: Get a real opening book
 // TODO: Retune eval using Gedas' tuner now that it has stacked pawn evaluation
@@ -27,8 +27,7 @@ using System.Linq;
 // TODO: Aspiration windows with increasing delta
 // TODO: Test promotion ordering again
 
-public class Tyrant : IChessBot
-{
+public class MTDFS : IChessBot {
     // Pawn, Knight, Bishop, Rook, Queen, King 
     private static readonly int[] PieceValues = { 77, 302, 310, 434, 890, 0, // Middlegame
                                                  109, 331, 335, 594, 1116, 0, }, // Endgame
@@ -36,7 +35,7 @@ public class Tyrant : IChessBot
 
     // Big table packed with data from premade piece square tables
     // Access using using PackedEvaluationTables[square * 16 + pieceType] = score
-    UnpackedPestoTables = 
+    UnpackedPestoTables =
         new[] {
             59445390105436474986072674560m, 70290677894333901267150682880m, 71539517137735599738519086336m, 78957476706409475571971323392m, 76477941479143404670656189696m, 78020492916263816717520067072m, 77059410983631195892660944640m, 61307098105356489251813834752m,
             77373759864583735626648317994m, 3437103645554060776222818613m, 5013542988189698109836108074m, 2865258213628105516468149820m, 5661498819074815745865228343m, 8414185094009835055136457260m, 7780689186187929908113377023m, 2486769613674807657298071274m,
@@ -70,13 +69,12 @@ public class Tyrant : IChessBot
 
     Move rootMove;
 
-#if DEBUGGING
+#if DEBUG
     long nodes;
 #endif
 
-    public Move Think(Board board, Timer timer)
-    {
-#if DEBUGGING
+    public Move Think(Board board, Timer timer) {
+#if DEBUG
         Console.WriteLine();
         nodes = 0;
 #endif
@@ -86,55 +84,72 @@ public class Tyrant : IChessBot
 
         // 1/13th of our remaining time, split among all of the moves
         int searchMaxTime = timer.MillisecondsRemaining / 13,
-            // Progressively increase search depth, starting from 2
-            depth = 2, alpha = -999999, beta = 999999, eval;
+        // Progressively increase search depth, starting from 2
+        depth = 2, alpha = -999999, beta = 999999, eval;
 
         // Iterative deepening loop
-        for (;;)
-        {
-            eval = PVS(depth, alpha, beta, 0, true);
+        //         for (; ; )
+        //         {
+        //             eval = PVS(depth, alpha, beta, 0, true);
 
-            // Out of time -> soft bound exceeded
+        //             // Out of time -> soft bound exceeded
+        //             if (timer.MillisecondsElapsedThisTurn > searchMaxTime / 3)
+        //                 return rootMove;
+
+        //             // Gradual widening
+        //             // Fell outside window, retry with wider window search
+        //             if (eval <= alpha)
+        //                 alpha -= 62;
+        //             else if (eval >= beta)
+        //                 beta += 62;
+        //             else {
+        // #if DEBUG
+        //                 string evalWithMate = eval.ToString();
+        //                 if (Math.Abs(eval) > 50000) {
+        //                     evalWithMate = eval < 0 ? "-" : "";
+        //                     evalWithMate += $"M{Math.Ceiling((99998 - Math.Abs((double)eval)) / 2)}";
+        //                 }
+
+        //                 Console.WriteLine("Info: depth: {0, 2} || eval: {1, 6} || nodes: {2, 9} || nps: {3, 8} || time: {4, 5}ms || best move: {5}{6}",
+        //                     depth,
+        //                     evalWithMate,
+        //                     nodes,
+        //                     1000 * nodes / (timer.MillisecondsElapsedThisTurn + 1),
+        //                     timer.MillisecondsElapsedThisTurn,
+        //                     rootMove.StartSquare.Name,
+        //                     rootMove.TargetSquare.Name);
+        // #endif
+
+        //                 // Set up window for next search
+        //                 alpha = eval - 17;
+        //                 beta = eval + 17;
+        //                 depth++;
+        //             }
+        //         }
+
+        int firstGuess = 0;
+
+        for (;; depth++) {
+            firstGuess = MTDF(firstGuess, depth);
             if (timer.MillisecondsElapsedThisTurn > searchMaxTime / 3)
-                return rootMove;
+              return rootMove;
+        }
 
-            // Gradual widening
-            // Fell outside window, retry with wider window search
-            if (eval <= alpha)
-                alpha -= 62;
-            else if (eval >= beta)
-                beta += 62;
-            else
-            {
-#if DEBUGGING
-                string evalWithMate = eval.ToString();
-                if (Math.Abs(eval) > 50000)
-                {
-                    evalWithMate = eval < 0 ? "-" : "";
-                    evalWithMate += $"M{Math.Ceiling((99998 - Math.Abs((double)eval)) / 2)}";
-                }
+        int MTDF(int firstGuess, int depth) {
+            int[] bound = { -99999, 99999 }; // lower, upper
 
-                Console.WriteLine("Info: depth: {0, 2} || eval: {1, 6} || nodes: {2, 9} || nps: {3, 8} || time: {4, 5}ms || best move: {5}{6}",
-                    depth,
-                    evalWithMate,
-                    nodes,
-                    1000 * nodes / (timer.MillisecondsElapsedThisTurn + 1),
-                    timer.MillisecondsElapsedThisTurn,
-                    rootMove.StartSquare.Name,
-                    rootMove.TargetSquare.Name);
-#endif
-
-                // Set up window for next search
-                alpha = eval - 17;
-                beta = eval + 17;
-                depth++;
+            while (bound[0] < bound[1] || timer.MillisecondsElapsedThisTurn > searchMaxTime / 3) {
+                beta = firstGuess + firstGuess == bound[0] ? 1 : 0;
+                firstGuess = PVS(depth, beta - 1, beta, 0, true);
+                bound[firstGuess < beta ? 1 : 0] = firstGuess;
             }
+
+            return firstGuess;
         }
 
         // This method doubles as our PVS and QSearch in order to save tokens
-        int PVS(int depth, int alpha, int beta, int plyFromRoot, bool allowNull)
-        {
-#if DEBUGGING
+        int PVS(int depth, int alpha, int beta, int plyFromRoot, bool allowNull) {
+#if DEBUG
             nodes++;
 #endif
 
@@ -189,8 +204,7 @@ public class Tyrant : IChessBot
 
             // Declare QSearch status here to prevent dropping into QSearch while in check
             bool inQSearch = depth <= 0;
-            if (inQSearch)
-            {
+            if (inQSearch) {
                 // Determine if quiescence search should be continued
                 bestEval = Evaluate();
                 if (bestEval >= beta)
@@ -199,8 +213,7 @@ public class Tyrant : IChessBot
             }
             // No pruning in QSearch
             // If this node is NOT part of the PV and we're not in check
-            else if (notPV && !inCheck)
-            {
+            else if (notPV && !inCheck) {
                 // Reverse futility pruning
                 int staticEval = Evaluate();
 
@@ -211,8 +224,7 @@ public class Tyrant : IChessBot
                     return staticEval;
 
                 // NULL move pruning
-                if (depth >= 2 && staticEval >= beta && allowNull)
-                {
+                if (depth >= 2 && staticEval >= beta && allowNull) {
                     board.ForceSkipTurn();
 
                     // TODO: Play with values: Try a max of 4 or 5 instead of 6
@@ -248,8 +260,7 @@ public class Tyrant : IChessBot
             MoveScores.AsSpan(0, moveSpan.Length).Sort(moveSpan);
 
             Move bestMove = entryMove;
-            foreach (Move move in moveSpan)
-            {
+            foreach (Move move in moveSpan) {
                 // Out of time -> hard bound exceeded
                 // -> Return checkmate so that this move is ignored
                 // but better than the worst eval so a move is still picked if no moves are looked at
@@ -287,11 +298,9 @@ public class Tyrant : IChessBot
 
                 board.UndoMove(move);
 
-                if (eval > bestEval)
-                {
+                if (eval > bestEval) {
                     bestEval = eval;
-                    if (eval > alpha)
-                    {
+                    if (eval > alpha) {
                         alpha = eval;
                         bestMove = move;
                         newTTFlag = 1;
@@ -302,11 +311,9 @@ public class Tyrant : IChessBot
                     }
 
                     // Cutoff
-                    if (alpha >= beta)
-                    {
+                    if (alpha >= beta) {
                         // Update history tables
-                        if (!move.IsCapture)
-                        {
+                        if (!move.IsCapture) {
                             historyHeuristics[plyFromRoot & 1, (int)move.MovePieceType, move.TargetSquare.Index] += depth * depth;
                             killers[plyFromRoot] = move;
                         }
@@ -333,13 +340,11 @@ public class Tyrant : IChessBot
             return bestEval;
         }
 
-        int Evaluate()
-        {
+        int Evaluate() {
             int middlegame = 0, endgame = 0, gamephase = 0, sideToMove = 2, piece, square;
             for (; --sideToMove >= 0; middlegame = -middlegame, endgame = -endgame)
                 for (piece = 6; --piece >= 0;)
-                    for (ulong mask = board.GetPieceBitboard((PieceType)piece + 1, sideToMove > 0); mask != 0;)
-                    {
+                    for (ulong mask = board.GetPieceBitboard((PieceType)piece + 1, sideToMove > 0); mask != 0;) {
                         // Gamephase, middlegame -> endgame
                         // Multiply, then shift, then mask out 4 bits for value (0-16)
                         gamephase += 0x00042110 >> piece * 4 & 0x0F;
@@ -350,15 +355,13 @@ public class Tyrant : IChessBot
                         endgame += UnpackedPestoTables[square * 16 + piece + 6];
 
                         // Bishop pair bonus
-                        if (piece == 2 && mask != 0)
-                        {
+                        if (piece == 2 && mask != 0) {
                             middlegame += 23;
                             endgame += 62;
                         }
 
                         // Doubled pawns penalty (brought to my attention by Y3737)
-                        if (piece == 0 && (0x101010101010101UL << (square & 7) & mask) > 0)
-                        {
+                        if (piece == 0 && (0x101010101010101UL << (square & 7) & mask) > 0) {
                             middlegame -= 15;
                             endgame -= 15;
                         }
