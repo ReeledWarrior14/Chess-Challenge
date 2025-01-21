@@ -1,9 +1,9 @@
 # Changelog
 
-## V1.0
+## V0.0
 #### Token count: 31
 Initial release
-* Plays random legal moves 
+* Plays first legal move
 
 ```bash
 Score of MyBot vs EvilBot: 0 - 80 - 7  [0.040] 87
