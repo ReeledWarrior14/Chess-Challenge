@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ChessChallenge.Chess;
-using ChessChallenge.Example;
+// using ChessChallenge.Example;
 using Raylib_cs;
 using static ChessChallenge.Application.ConsoleHelper;
 using static ChessChallenge.Application.Settings;
