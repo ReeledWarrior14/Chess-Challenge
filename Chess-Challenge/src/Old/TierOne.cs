@@ -3,8 +3,7 @@ using ChessChallenge.API;
 using System;
 using System.Linq;
 
-public class TierOne : IChessBot
-{
+public class TierOne : IChessBot {
 	//                     .  P    K    B    R    Q    K
 	int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
 	int kMassiveNum = 99999999;
@@ -17,8 +16,7 @@ public class TierOne : IChessBot
 	int mDepth;
 	Move mBestMove;
 
-	public Move Think(Board board, Timer timer)
-	{
+	public Move Think(Board board, Timer timer) {
 		Move[] legalMoves = board.GetLegalMoves();
 		mDepth = 5;
 
@@ -32,15 +30,13 @@ public class TierOne : IChessBot
 		return mBestMove;
 	}
 
-	int EvaluateBoardNegaMax(Board board, int depth, int alpha, int beta, int color)
-	{
+	int EvaluateBoardNegaMax(Board board, int depth, int alpha, int beta, int color) {
 		Move[] legalMoves;
 
 		if (board.IsDraw())
 			return 0;
 
-		if (depth == 0 || (legalMoves = board.GetLegalMoves()).Length == 0)
-		{
+		if (depth == 0 || (legalMoves = board.GetLegalMoves()).Length == 0) {
 			// EVALUATE
 			int sum = 0;
 
@@ -56,14 +52,12 @@ public class TierOne : IChessBot
 
 		// TREE SEARCH
 		int recordEval = -kMassiveNum;
-		foreach(Move move in legalMoves)
-		{
+		foreach (Move move in legalMoves) {
 			board.MakeMove(move);
 			int evaluation = -EvaluateBoardNegaMax(board, depth - 1, -beta, -alpha, -color);
 			board.UndoMove(move);
-			
-			if(recordEval < evaluation)
-			{
+
+			if (recordEval < evaluation) {
 				recordEval = evaluation;
 				if (depth == mDepth) mBestMove = move;
 			}
